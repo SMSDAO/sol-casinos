@@ -1,0 +1,39 @@
+{
+  "id": "/",
+  "name": "SOLSTICE ROULETTE",
+  "short_name": "Solstice",
+  "description": "Unified Solana Casino Super-App with 10 classic hybrid games, multi-table cascade modes, AI portfolio analytics, and cyber-futuristic flash glassmorphism.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#060813",
+  "theme_color": "#060813",
+  "categories": ["games", "finance", "entertainment"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

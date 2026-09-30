@@ -1,0 +1,6 @@
+{
+  "name": "SOLSTICE ROULETTE ENTERPRISE V5.0.0",
+  "description": "Solstice Nexus V5.0.0 — Unified Solana Casino Super-App with SPL Token Launch Studio, Logo Uploads, Social Like & Play Feed, Jupiter/Pyth Price Oracles, and 10 On-Chain Games.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
