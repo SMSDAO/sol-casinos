@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import confetti from 'canvas-confetti';
 import {
   Sparkles,
   Coins,
@@ -56,6 +57,10 @@ import { ReplayViewerModal } from './components/ReplayViewerModal';
 import { TokenLaunchStudio } from './components/TokenLaunchStudio';
 import { SocialFeedModal } from './components/SocialFeedModal';
 import { JurisdictionGuard } from './components/JurisdictionGuard';
+import { SpectatorMode } from './components/SpectatorMode';
+import { SpectatorLiveStream } from './components/SpectatorLiveStream';
+import { ShareableResult } from './components/ShareableResult';
+import { DailyFortuneWheelModal } from './components/DailyFortuneWheelModal';
 
 // 10 Games
 import { NeonRoulette } from './components/games/NeonRoulette';
@@ -84,7 +89,7 @@ const GAMES_LIST = [
 
 export default function App() {
   // Navigation & View State
-  const [activeTab, setActiveTab] = useState<'games' | 'portfolio' | 'multi' | 'admin'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'portfolio' | 'multi' | 'admin' | 'spectator'>('games');
   const [activeGameId, setActiveGameId] = useState<string>('roulette');
 
   // Enterprise Theme & Language State
@@ -102,11 +107,12 @@ export default function App() {
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [multiCascadeOpen, setMultiCascadeOpen] = useState(false);
   const [missionsModalOpen, setMissionsModalOpen] = useState(false);
-  const [missionsInitialTab, setMissionsInitialTab] = useState<'missions' | 'referrals'>('missions');
+  const [missionsInitialTab, setMissionsInitialTab] = useState<'missions' | 'streaks' | 'badges' | 'referrals'>('missions');
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [responsibleModalOpen, setResponsibleModalOpen] = useState(false);
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [fortuneWheelOpen, setFortuneWheelOpen] = useState(false);
 
   // V4 Solstice Prism Modals State
   const [jupiterFundingOpen, setJupiterFundingOpen] = useState(false);
@@ -116,7 +122,20 @@ export default function App() {
   // V5 Solstice Nexus Modals State
   const [launchStudioOpen, setLaunchStudioOpen] = useState(false);
   const [socialFeedOpen, setSocialFeedOpen] = useState(false);
+  const [shareResultOpen, setShareResultOpen] = useState(false);
+  const [spectatorStreamOpen, setSpectatorStreamOpen] = useState(false);
   const [lastWinForLaunch, setLastWinForLaunch] = useState<number | undefined>(undefined);
+  const [lastWinResult, setLastWinResult] = useState<{
+    game: string;
+    winAmount: number;
+    betAmount: number;
+    multiplier: number;
+  }>({
+    game: 'Neon Roulette',
+    winAmount: 0.36,
+    betAmount: 0.01,
+    multiplier: 36.0,
+  });
 
   const [claimToast, setClaimToast] = useState<{ amount: number; label: string } | null>(null);
 
@@ -227,6 +246,17 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [muted]);
 
+  // Subscribe to live rewardsService changes for real-time unclaimedCount updates
+  useEffect(() => {
+    const updateCount = () => {
+      const pending = rewardsService.getMissions().filter((m) => m.completed && !m.claimed).length;
+      setUnclaimedCount(pending);
+    };
+    updateCount();
+    const unsubscribe = rewardsService.subscribe(updateCount);
+    return unsubscribe;
+  }, []);
+
   // Network Switcher Handler
   const handleSelectNetwork = (net: NetworkCluster) => {
     sound.playChipClick();
@@ -294,7 +324,7 @@ export default function App() {
     setHistory((prev) => [...prev, newTx]);
 
     // Record mission activity & update rewards progression
-    const { newlyCompletedCount } = rewardsService.recordBetActivity(
+    const { newlyCompletedCount, newlyCompletedMissions } = rewardsService.recordBetActivity(
       game,
       betAmount,
       payout,
@@ -305,14 +335,28 @@ export default function App() {
     const pending = rewardsService.getMissions().filter((m) => m.completed && !m.claimed).length;
     setUnclaimedCount(pending);
 
-    if (isWin && payout >= 0.5) {
-      setLastWinForLaunch(payout);
+    if (isWin) {
+      setLastWinResult({
+        game,
+        winAmount: payout,
+        betAmount,
+        multiplier,
+      });
+      if (payout >= 0.5) {
+        setLastWinForLaunch(payout);
+      }
     }
 
-    if (newlyCompletedCount > 0) {
+    if (newlyCompletedCount > 0 && newlyCompletedMissions.length > 0) {
       sound.playWin();
-      setClaimToast({ amount: 0, label: 'Daily Mission Completed! Claim in Rewards Vault.' });
-      setTimeout(() => setClaimToast(null), 4000);
+      confetti({ particleCount: 80, spread: 70 });
+      const missionTitles = newlyCompletedMissions.map((m) => `"${m.title}"`).join(', ');
+      const totalRewardSol = newlyCompletedMissions.reduce((acc, m) => acc + m.rewardSol, 0);
+      setClaimToast({
+        amount: totalRewardSol,
+        label: `🎉 Daily Mission Completed: ${missionTitles}! Click Rewards Vault to claim +${totalRewardSol.toFixed(3)} SOL`,
+      });
+      setTimeout(() => setClaimToast(null), 5000);
     }
 
     // Increment nonce for provably fair rotation
@@ -340,6 +384,11 @@ export default function App() {
           sound.playChipClick();
           setMobileMenuOpen(true);
         }}
+        onOpenRewardsModal={() => {
+          sound.playChipClick();
+          setMissionsInitialTab('missions');
+          setMissionsModalOpen(true);
+        }}
         unclaimedMissionsCount={unclaimedCount}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -356,6 +405,42 @@ export default function App() {
               (+{claimToast.amount.toFixed(4)} SOL)
             </span>
           )}
+        </div>
+      )}
+
+      {/* Floating Share Result & Blink Trigger */}
+      {lastWinResult && lastWinResult.winAmount > 0 && (
+        <div className="fixed bottom-20 right-4 z-40 hidden sm:block">
+          <button
+            onClick={() => {
+              sound.playChipClick();
+              setShareResultOpen(true);
+            }}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 via-blue-600 to-purple-600 text-white font-mono text-xs font-bold shadow-xl border border-cyan-400/50 hover:scale-105 active:scale-95 transition-all group animate-pulse"
+          >
+            <Zap className="w-4 h-4 text-yellow-300" />
+            <span>Share {lastWinResult.multiplier}x Win (Solana Blink)</span>
+          </button>
+        </div>
+      )}
+
+      {/* Floating Spectator Live Stream Quick Launcher (When stream is closed) */}
+      {!spectatorStreamOpen && (
+        <div className="fixed bottom-6 left-4 z-40 hidden sm:block">
+          <button
+            onClick={() => {
+              sound.playChipClick();
+              setSpectatorStreamOpen(true);
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full cyber-glass-glow bg-gradient-to-r from-red-950/90 via-[#060813]/90 to-purple-950/90 border border-red-500/50 text-white font-mono text-xs font-bold shadow-2xl hover:border-red-400 active:scale-95 transition-all group backdrop-blur-md"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+            <span className="text-[10px] text-red-400 font-extrabold uppercase tracking-wider">LIVE STREAM</span>
+            <span className="text-[10px] text-cyan-300">PiP</span>
+          </button>
         </div>
       )}
 
@@ -481,6 +566,18 @@ export default function App() {
               )}
             </div>
           </>
+        ) : activeTab === 'spectator' ? (
+          <SpectatorMode
+            walletPublicKey={wallet.publicKey}
+            onSendTip={(targetWallet, amountSol) => {
+              setWallet((prev) => ({
+                ...prev,
+                balance: Math.max(0, parseFloat((prev.balance - amountSol).toFixed(5))),
+              }));
+              setClaimToast({ amount: 0, label: `Successfully tipped ${amountSol} SOL!` });
+              setTimeout(() => setClaimToast(null), 5000);
+            }}
+          />
         ) : activeTab === 'portfolio' ? (
           <PortfolioHistory
             balance={wallet.balance}
@@ -637,6 +734,15 @@ export default function App() {
           setMissionsInitialTab('missions');
           setMissionsModalOpen(true);
         }}
+        onOpenStreaks={() => {
+          setMissionsInitialTab('streaks');
+          setMissionsModalOpen(true);
+        }}
+        onOpenBadges={() => {
+          setMissionsInitialTab('badges');
+          setMissionsModalOpen(true);
+        }}
+        onOpenFortuneWheel={() => setFortuneWheelOpen(true)}
         onOpenReferrals={() => {
           setMissionsInitialTab('referrals');
           setMissionsModalOpen(true);
@@ -653,6 +759,8 @@ export default function App() {
         onOpenReplayViewer={() => setReplayViewerOpen(true)}
         onOpenLaunchStudio={() => setLaunchStudioOpen(true)}
         onOpenSocialFeed={() => setSocialFeedOpen(true)}
+        onOpenShareResult={() => setShareResultOpen(true)}
+        onOpenSpectatorStream={() => setSpectatorStreamOpen(true)}
         onRequestFaucet={handleRequestFaucet}
         faucetLoading={faucetLoading}
         network={wallet.network}
@@ -724,6 +832,50 @@ export default function App() {
         onOpenLaunchStudio={() => {
           setSocialFeedOpen(false);
           setLaunchStudioOpen(true);
+        }}
+      />
+
+      {/* Shareable Result & Solana Blink Modal */}
+      {shareResultOpen && (
+        <ShareableResult
+          isOpen={true}
+          onClose={() => setShareResultOpen(false)}
+          gameName={lastWinResult.game}
+          multiplier={lastWinResult.multiplier}
+          winAmountSol={lastWinResult.winAmount}
+          betAmountSol={lastWinResult.betAmount}
+          publicKey={wallet.publicKey}
+        />
+      )}
+
+      {/* Spectator Live Stream Component (Real-Time SSE Game State & Overlay HUD) */}
+      <SpectatorLiveStream
+        isOpen={spectatorStreamOpen}
+        onClose={() => setSpectatorStreamOpen(false)}
+        userPublicKey={wallet.publicKey}
+        onMirrorBet={(gameName, betAmountSol) => {
+          sound.playWin();
+          setClaimToast({
+            amount: 0,
+            label: `Mirrored Bet: ${betAmountSol} SOL on ${gameName}! Good luck!`,
+          });
+          setTimeout(() => setClaimToast(null), 4000);
+        }}
+      />
+
+      {/* Daily Fortune Wheel Modal */}
+      <DailyFortuneWheelModal
+        isOpen={fortuneWheelOpen}
+        onClose={() => setFortuneWheelOpen(false)}
+        onRewardClaimed={(amountSol, label) => {
+          if (amountSol > 0) {
+            setWallet((prev) => ({
+              ...prev,
+              balance: parseFloat((prev.balance + amountSol).toFixed(5)),
+            }));
+          }
+          setClaimToast({ amount: amountSol, label });
+          setTimeout(() => setClaimToast(null), 5000);
         }}
       />
     </div>

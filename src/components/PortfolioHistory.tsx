@@ -12,11 +12,13 @@ import {
   Sparkles,
   Rocket,
   Flame,
+  Share2,
 } from 'lucide-react';
 import { BetTransactionRecord, NETWORKS, NetworkCluster } from '../services/solana';
 import { sound } from '../utils/audio';
 import { fetchRealSolPrice, PriceOracleData } from '../services/oracle';
 import { tokenLaunchService, LaunchedSPLToken } from '../services/tokenLaunch';
+import { ShareableResult } from './ShareableResult';
 
 interface PortfolioHistoryProps {
   balance: number;
@@ -40,6 +42,7 @@ export const PortfolioHistory: React.FC<PortfolioHistoryProps> = ({
   });
 
   const [launchedTokens, setLaunchedTokens] = useState<LaunchedSPLToken[]>([]);
+  const [selectedShareTx, setSelectedShareTx] = useState<BetTransactionRecord | null>(null);
 
   // Fetch real live price from Jupiter/Pyth oracles
   useEffect(() => {
@@ -81,6 +84,11 @@ export const PortfolioHistory: React.FC<PortfolioHistoryProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleOpenShare = (tx: BetTransactionRecord) => {
+    sound.playChipClick();
+    setSelectedShareTx(tx);
   };
 
   return (
@@ -241,6 +249,7 @@ export const PortfolioHistory: React.FC<PortfolioHistoryProps> = ({
                   <th className="pb-2.5 font-semibold">Multiplier</th>
                   <th className="pb-2.5 font-semibold">Details</th>
                   <th className="pb-2.5 font-semibold">Time</th>
+                  <th className="pb-2.5 font-semibold">Promo Share</th>
                   <th className="pb-2.5 font-semibold text-right">Solana Tx</th>
                 </tr>
               </thead>
@@ -275,6 +284,15 @@ export const PortfolioHistory: React.FC<PortfolioHistoryProps> = ({
                     <td className="py-3 text-slate-400 text-[11px]">
                       {new Date(tx.timestamp).toLocaleTimeString()}
                     </td>
+                    <td className="py-3">
+                      <button
+                        onClick={() => handleOpenShare(tx)}
+                        className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 text-[11px] font-bold transition-colors"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>Promo</span>
+                      </button>
+                    </td>
                     <td className="py-3 text-right">
                       <a
                         href={`https://explorer.solana.com/tx/${tx.signature}?cluster=${network}`}
@@ -297,6 +315,20 @@ export const PortfolioHistory: React.FC<PortfolioHistoryProps> = ({
           </div>
         )}
       </div>
+
+      {/* Slide-In Social Shareable Result & Solana Blink Modal */}
+      {selectedShareTx && (
+        <ShareableResult
+          isOpen={true}
+          onClose={() => setSelectedShareTx(null)}
+          gameName={selectedShareTx.game}
+          multiplier={selectedShareTx.multiplier}
+          winAmountSol={selectedShareTx.payout}
+          betAmountSol={selectedShareTx.betAmount}
+          publicKey={publicKey}
+          signature={selectedShareTx.signature}
+        />
+      )}
     </div>
   );
 };

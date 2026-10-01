@@ -4,6 +4,7 @@ import {
   Sparkles,
   RefreshCw,
   SlidersHorizontal,
+  Trophy,
 } from 'lucide-react';
 import { NetworkCluster } from '../services/solana';
 import { TRANSLATIONS, SupportedLanguage } from '../services/i18n';
@@ -20,9 +21,10 @@ interface NavbarProps {
   onRequestFaucet: () => void;
   faucetLoading: boolean;
   onOpenMenuSlider: () => void;
+  onOpenRewardsModal?: () => void;
   unclaimedMissionsCount?: number;
-  activeTab: 'games' | 'portfolio' | 'multi' | 'admin';
-  setActiveTab: (tab: 'games' | 'portfolio' | 'multi' | 'admin') => void;
+  activeTab: 'games' | 'portfolio' | 'multi' | 'admin' | 'spectator';
+  setActiveTab: (tab: 'games' | 'portfolio' | 'multi' | 'admin' | 'spectator') => void;
   currentLang: string;
 }
 
@@ -34,6 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onRequestFaucet,
   faucetLoading,
   onOpenMenuSlider,
+  onOpenRewardsModal,
   unclaimedMissionsCount = 0,
   activeTab,
   setActiveTab,
@@ -48,8 +51,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="sticky top-0 z-50 w-full border-b border-cyan-500/20 cyber-glass">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-3">
-        {/* Zone 1: Icon Logo Only */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        {/* Zone 1: Icon Logo & Main Tabs */}
+        <div className="flex items-center gap-4 shrink-0">
           <button
             onClick={() => {
               sound.playChipClick();
@@ -64,6 +67,34 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
           </button>
+
+          <div className="hidden md:flex items-center gap-1">
+            <button
+              onClick={() => { sound.playChipClick(); setActiveTab('games'); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition-all ${
+                activeTab === 'games' ? 'bg-cyan-500/20 text-cyan-300' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Casino Games
+            </button>
+            <button
+              onClick={() => { sound.playChipClick(); setActiveTab('spectator'); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition-all flex items-center gap-1.5 ${
+                activeTab === 'spectator' ? 'bg-purple-500/20 text-purple-300' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping" />
+              <span>Spectator Mode</span>
+            </button>
+            <button
+              onClick={() => { sound.playChipClick(); setActiveTab('portfolio'); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition-all ${
+                activeTab === 'portfolio' ? 'bg-cyan-500/20 text-cyan-300' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Portfolio
+            </button>
+          </div>
         </div>
 
         {/* Zone 2: Optimized Right Controls & All-In-One Menu Slider Icon */}
@@ -86,6 +117,26 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* In-App Notification Center */}
           <NotificationCenter />
+
+          {/* Rewards & Daily Streak Button */}
+          {onOpenRewardsModal && (
+            <button
+              onClick={() => {
+                sound.playChipClick();
+                onOpenRewardsModal();
+              }}
+              title="Solstice Rewards Vault (Missions, Streaks & Badges)"
+              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-950/80 via-slate-900 to-purple-950/80 border border-amber-500/40 hover:border-amber-400 text-xs font-mono font-bold text-amber-200 transition-all shadow-sm shadow-amber-950 active:scale-95 relative"
+            >
+              <Trophy className="w-3.5 h-3.5 text-yellow-400" />
+              <span className="hidden md:inline">Rewards</span>
+              {unclaimedMissionsCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-orange-500 text-white text-[9px] font-extrabold animate-pulse">
+                  {unclaimedMissionsCount}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Wallet Balance Pill */}
           <button

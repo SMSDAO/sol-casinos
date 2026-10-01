@@ -170,6 +170,107 @@ pub mod solstice_casino {
 
         Ok(())
     }
+
+    /// V6: Initialize Fair Launch Token with on-chain bonding curve
+    pub fn launch_token_bonding_curve(
+        ctx: Context<LaunchTokenCurve>,
+        name: String,
+        symbol: String,
+        decimals: u8,
+        total_supply: u64,
+        curve_type: u8, // 0 = Exponential, 1 = Linear, 2 = Constant-Product
+        transfer_fee_bps: u16,
+    ) -> Result<()> {
+        let curve = &mut ctx.accounts.bonding_curve;
+        curve.creator = ctx.accounts.creator.key();
+        curve.mint = ctx.accounts.mint.key();
+        curve.name = name;
+        curve.symbol = symbol;
+        curve.decimals = decimals;
+        curve.total_supply = total_supply;
+        curve.curve_type = curve_type;
+        curve.transfer_fee_bps = transfer_fee_bps;
+        curve.virtual_sol_reserves = 30_000_000_000; // 30 virtual SOL reserve
+        curve.virtual_token_reserves = total_supply;
+        curve.real_sol_reserves = 0;
+        curve.real_token_reserves = (total_supply * 80) / 100; // 80% to curve, 20% to liquidity pool
+        curve.migration_target_sol = 85_000_000_000; // 85 SOL target
+        curve.migrated = false;
+        curve.bump = ctx.bumps.bonding_curve;
+
+        emit!(TokenLaunchedEvent {
+            creator: ctx.accounts.creator.key(),
+            mint: ctx.accounts.mint.key(),
+            curve_type,
+            total_supply,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+
+        Ok(())
+    }
+
+    /// Buy Tokens along the Fair Launch Bonding Curve
+    pub fn buy_bonding_curve(
+        ctx: Context<TradeBondingCurve>,
+        sol_amount_in: u64,
+        min_tokens_out: u64,
+    ) -> Result<()> {
+        require!(sol_amount_in > 0, CasinoError::ZeroRewardAmount);
+        let curve = &mut ctx.accounts.bonding_curve;
+        require!(!curve.migrated, CasinoError::CurveAlreadyMigrated);
+
+        // Calculate tokens out based on constant product formula (x * y = k)
+        let invariant = (curve.virtual_sol_reserves as u128)
+            .checked_mul(curve.virtual_token_reserves as u128)
+            .unwrap();
+
+        let new_sol_reserves = (curve.virtual_sol_reserves as u128)
+            .checked_add(sol_amount_in as u128)
+            .unwrap();
+
+        let new_token_reserves = invariant.checked_div(new_sol_reserves).unwrap();
+        let tokens_out = (curve.virtual_token_reserves as u128)
+            .checked_sub(new_token_reserves)
+            .unwrap() as u64;
+
+        require!(tokens_out >= min_tokens_out, CasinoError::SlippageExceeded);
+
+        // Update reserves
+        curve.virtual_sol_reserves = curve.virtual_sol_reserves.checked_add(sol_amount_in).unwrap();
+        curve.virtual_token_reserves = curve.virtual_token_reserves.checked_sub(tokens_out).unwrap();
+        curve.real_sol_reserves = curve.real_sol_reserves.checked_add(sol_amount_in).unwrap();
+
+        // Check if migration threshold reached
+        if curve.real_sol_reserves >= curve.migration_target_sol {
+            curve.migrated = true;
+            emit!(MigrationTriggeredEvent {
+                mint: curve.mint,
+                total_sol: curve.real_sol_reserves,
+                timestamp: Clock::get()?.unix_timestamp,
+            });
+        }
+
+        // Transfer SOL from buyer to bonding curve PDA
+        let cpi_context = CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.user.to_account_info(),
+                to: ctx.accounts.bonding_curve.to_account_info(),
+            },
+        );
+        transfer(cpi_context, sol_amount_in)?;
+
+        emit!(BondingCurveTradeEvent {
+            user: ctx.accounts.user.key(),
+            mint: curve.mint,
+            is_buy: true,
+            sol_amount: sol_amount_in,
+            token_amount: tokens_out,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -232,6 +333,37 @@ pub struct ClaimReward<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+#[instruction(name: String, symbol: String)]
+pub struct LaunchTokenCurve<'info> {
+    #[account(
+        init,
+        payer = creator,
+        space = 8 + 32 + 32 + 36 + 12 + 1 + 8 + 1 + 2 + 8 + 8 + 8 + 8 + 8 + 1 + 1,
+        seeds = [b"bonding_curve", mint.key().as_ref()],
+        bump
+    )]
+    pub bonding_curve: Account<'info, TokenBondingCurve>,
+    /// CHECK: Mint account
+    pub mint: AccountInfo<'info>,
+    #[account(mut)]
+    pub creator: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct TradeBondingCurve<'info> {
+    #[account(
+        mut,
+        seeds = [b"bonding_curve", bonding_curve.mint.as_ref()],
+        bump = bonding_curve.bump
+    )]
+    pub bonding_curve: Account<'info, TokenBondingCurve>,
+    #[account(mut)]
+    pub user: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
 #[account]
 pub struct HouseBank {
     pub authority: Pubkey,
@@ -240,6 +372,25 @@ pub struct HouseBank {
     pub total_payouts: u64,
     pub total_bets_placed: u64,
     pub total_referral_rewards: u64,
+    pub bump: u8,
+}
+
+#[account]
+pub struct TokenBondingCurve {
+    pub creator: Pubkey,
+    pub mint: Pubkey,
+    pub name: String,
+    pub symbol: String,
+    pub decimals: u8,
+    pub total_supply: u64,
+    pub curve_type: u8,
+    pub transfer_fee_bps: u16,
+    pub virtual_sol_reserves: u64,
+    pub virtual_token_reserves: u64,
+    pub real_sol_reserves: u64,
+    pub real_token_reserves: u64,
+    pub migration_target_sol: u64,
+    pub migrated: bool,
     pub bump: u8,
 }
 
@@ -277,6 +428,32 @@ pub struct StreakRewardClaimedEvent {
     pub timestamp: i64,
 }
 
+#[event]
+pub struct TokenLaunchedEvent {
+    pub creator: Pubkey,
+    pub mint: Pubkey,
+    pub curve_type: u8,
+    pub total_supply: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct BondingCurveTradeEvent {
+    pub user: Pubkey,
+    pub mint: Pubkey,
+    pub is_buy: bool,
+    pub sol_amount: u64,
+    pub token_amount: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct MigrationTriggeredEvent {
+    pub mint: Pubkey,
+    pub total_sol: u64,
+    pub timestamp: i64,
+}
+
 #[error_code]
 pub enum CasinoError {
     #[msg("Wager amount is below the mandatory 0.00022 SOL hard floor.")]
@@ -285,4 +462,8 @@ pub enum CasinoError {
     ZeroRewardAmount,
     #[msg("Insufficient treasury liquidity in house bank.")]
     InsufficientHouseLiquidity,
+    #[msg("Bonding curve has already migrated to DEX pool.")]
+    CurveAlreadyMigrated,
+    #[msg("Slippage tolerance exceeded on bonding curve trade.")]
+    SlippageExceeded,
 }

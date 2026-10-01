@@ -12,6 +12,9 @@ import {
   ExternalLink,
   ShieldCheck,
   Flame,
+  Percent,
+  TrendingUp,
+  Share2,
 } from 'lucide-react';
 import { sound } from '../utils/audio';
 import { tokenLaunchService, LaunchedSPLToken } from '../services/tokenLaunch';
@@ -36,6 +39,12 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
   const [decimals, setDecimals] = useState<number>(9);
   const [supply, setSupply] = useState('1000000000'); // 1B
   const [description, setDescription] = useState('');
+
+  // V6 Fair Launch Upgrade Fields
+  const [tokenStandard, setTokenStandard] = useState<'SPL' | 'Token-2022'>('SPL');
+  const [bondingType, setBondingType] = useState<'Linear' | 'Exponential' | 'Constant-Product'>('Exponential');
+  const [transferFee, setTransferFee] = useState<number>(150); // Basis points
+  const [permanentDelegate, setPermanentDelegate] = useState<boolean>(false);
 
   // Logo File Upload State
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -91,7 +100,7 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
     setIsLaunching(true);
     setErrorMsg(null);
 
-    // Simulate on-chain SPL mint creation delay
+    // Simulate on-chain SPL mint creation delay with bonding curve initializing
     setTimeout(() => {
       sound.playWin();
       sound.playJackpot();
@@ -107,12 +116,20 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
         symbol: symbol.trim().toUpperCase(),
         decimals,
         initialSupply: parseFloat(supply) || 1000000,
-        description: description.trim() || 'Created via Solstice SPL Token Launch Studio',
+        description: description.trim() || 'Created via Solstice Fair Launch Bonding Curve Studio',
         logoUrl: logoUri,
         metadataUri: `https://arweave.net/solstice_${symbol.toLowerCase()}_metadata.json`,
         creatorWallet: walletPublicKey || 'Vault_Player',
         launchFeeSol: LAUNCH_FEE_SOL,
         txSignature,
+        tokenStandard,
+        bondingType,
+        marketCapSol: 1.5, // Initial pool capitalization value
+        progress: 0, // Freshly launched bonding curve progress
+        transferFeeBasisPoints: tokenStandard === 'Token-2022' ? transferFee : 0,
+        permanentDelegateEnabled: tokenStandard === 'Token-2022' ? permanentDelegate : false,
+        blinkUrl: `solana-action:https://ais-dev-wodqg4vjvosq73rhbpcsrn-58325421054.us-east5.run.app/api/action/buy/${symbol.toUpperCase()}`,
+        tipsVolumeSol: 0,
       });
 
       setCreatedToken(newTok);
@@ -132,9 +149,9 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
           </div>
           <div>
             <h2 className="text-sm font-bold text-white tracking-wider flex items-center gap-2">
-              SPL TOKEN LAUNCH STUDIO
+              FAIR LAUNCH BONDING STUDIO <span className="text-[10px] text-cyan-400 font-extrabold px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/50">V6 APEX</span>
             </h2>
-            <p className="text-[10px] text-cyan-400">On-Chain SPL Token Creation & Permanent Metadata</p>
+            <p className="text-[10px] text-cyan-400">On-Chain Bonding Curves, Token-2022 Extensions & Blinks</p>
           </div>
         </div>
 
@@ -153,8 +170,8 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
         <div className="p-3 bg-yellow-950/80 border border-yellow-500/40 rounded-xl text-yellow-200 text-xs flex items-center gap-2">
           <Flame className="w-4 h-4 text-yellow-400 shrink-0 animate-bounce" />
           <span>
-            <strong>Launch from Win Active!</strong> Fund your token mint using your +
-            {initialWinAmount.toFixed(3)} SOL casino winnings!
+            <strong>Launch from Win Active!</strong> Fund your fair launch bonding curve using your +
+            {initialWinAmount.toFixed(4)} SOL casino winnings!
           </span>
         </div>
       )}
@@ -166,13 +183,21 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
           </div>
 
           <div>
-            <h3 className="text-base font-bold text-white">SPL TOKEN LAUNCHED ON-CHAIN!</h3>
+            <h3 className="text-base font-bold text-white">FAIR LAUNCH BONDING MINT STARTED!</h3>
             <p className="text-xs text-emerald-300 font-bold mt-1">
               ${createdToken.symbol} — {createdToken.name}
             </p>
           </div>
 
           <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-xs space-y-1.5 text-left text-slate-300 font-mono">
+            <div className="flex justify-between">
+              <span>Token Standard:</span>
+              <span className="text-purple-400 font-bold">{createdToken.tokenStandard}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Bonding Curve:</span>
+              <span className="text-cyan-400 font-bold">{createdToken.bondingType}</span>
+            </div>
             <div className="flex justify-between">
               <span>Mint Address:</span>
               <span className="text-cyan-300 font-bold">{createdToken.mintAddress.slice(0, 16)}...</span>
@@ -181,13 +206,15 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
               <span>Initial Supply:</span>
               <span className="text-yellow-400 font-bold">{createdToken.initialSupply.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between">
-              <span>Decimals:</span>
-              <span className="text-slate-200">{createdToken.decimals}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Transaction Sig:</span>
-              <span className="text-emerald-400">{createdToken.txSignature.slice(0, 14)}...</span>
+            {createdToken.tokenStandard === 'Token-2022' && (
+              <div className="flex justify-between">
+                <span>Transfer Fee Basis Points:</span>
+                <span className="text-orange-400 font-mono font-bold">{(createdToken.transferFeeBasisPoints || 0)} bp</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t border-slate-800/80 pt-2">
+              <span>Shareable Blink URL:</span>
+              <span className="text-emerald-400 text-[10px] break-all select-all font-mono font-semibold">{createdToken.blinkUrl}</span>
             </div>
           </div>
 
@@ -200,7 +227,7 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
             }}
             className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-xs rounded-xl shadow-lg"
           >
-            Launch Another SPL Token
+            Launch Another Token
           </button>
         </div>
       ) : (
@@ -210,6 +237,38 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
               {errorMsg}
             </div>
           )}
+
+          {/* Token Standard Toggle */}
+          <div className="bg-slate-950/80 border border-slate-800 p-2.5 rounded-xl flex items-center justify-between">
+            <div className="space-y-0.5">
+              <span className="text-white text-xs font-bold block">Token Protocol Standard</span>
+              <span className="text-[10px] text-slate-400 block">SPL is standard; Token-2022 includes custom extensions.</span>
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => { sound.playChipClick(); setTokenStandard('SPL'); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition-all border ${
+                  tokenStandard === 'SPL'
+                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                SPL
+              </button>
+              <button
+                type="button"
+                onClick={() => { sound.playChipClick(); setTokenStandard('Token-2022'); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition-all border ${
+                  tokenStandard === 'Token-2022'
+                    ? 'bg-purple-500/20 text-purple-300 border-purple-500'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                Token-2022
+              </button>
+            </div>
+          </div>
 
           {/* Form Inputs Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -221,7 +280,7 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Solstice Prism"
+                placeholder="e.g. Apex Solstice"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400 font-bold"
               />
             </div>
@@ -234,14 +293,29 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
                 type="text"
                 value={symbol}
                 onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                placeholder="e.g. PRISM"
+                placeholder="e.g. APEX"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400 font-bold uppercase"
               />
             </div>
 
             <div>
               <label className="text-slate-400 text-[10px] uppercase font-bold block mb-1">
-                Initial Total Supply
+                Bonding Curve Strategy
+              </label>
+              <select
+                value={bondingType}
+                onChange={(e) => setBondingType(e.target.value as any)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none font-bold"
+              >
+                <option value="Exponential">Exponential Curve (Anti-Sniper)</option>
+                <option value="Linear">Linear Curve (Consistent Pricing)</option>
+                <option value="Constant-Product">Constant-Product (UniV2 model)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-slate-400 text-[10px] uppercase font-bold block mb-1">
+                Initial Token Supply
               </label>
               <input
                 type="number"
@@ -251,21 +325,47 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400 font-mono"
               />
             </div>
-
-            <div>
-              <label className="text-slate-400 text-[10px] uppercase font-bold block mb-1">
-                Decimals
-              </label>
-              <select
-                value={decimals}
-                onChange={(e) => setDecimals(parseInt(e.target.value, 10))}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none font-bold"
-              >
-                <option value={9}>9 (Standard SOL Precision)</option>
-                <option value={6}>6 (USDC Precision)</option>
-              </select>
-            </div>
           </div>
+
+          {/* Token-2022 Extensions Settings */}
+          {tokenStandard === 'Token-2022' && (
+            <div className="p-3 bg-purple-950/20 rounded-xl border border-purple-500/30 space-y-3">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-purple-300 uppercase tracking-wider">
+                <Percent className="w-3.5 h-3.5" />
+                <span>Token-2022 Protocols & Extensions</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-400 text-[10px] block mb-1">
+                    Transfer Fee (bp, e.g. 150 = 1.5%)
+                  </label>
+                  <input
+                    type="number"
+                    value={transferFee}
+                    onChange={(e) => setTransferFee(Math.max(0, Math.min(1000, parseInt(e.target.value, 10) || 0)))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                  />
+                </div>
+                <div className="flex items-center justify-between pt-4">
+                  <div className="space-y-0.5">
+                    <span className="text-slate-300 font-bold block">Permanent Delegate</span>
+                    <span className="text-[9px] text-slate-400 block">Creator security control extension</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { sound.playChipClick(); setPermanentDelegate(!permanentDelegate); }}
+                    className={`px-3 py-1 rounded-lg border text-[11px] font-bold transition-all ${
+                      permanentDelegate
+                        ? 'bg-purple-500/20 text-purple-300 border-purple-500'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {permanentDelegate ? 'ENABLED' : 'DISABLED'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Description */}
           <div>
@@ -275,7 +375,7 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe utility, roadmap, or community focus..."
+              placeholder="Describe utility, bonding curve parameters, or roadmap..."
               rows={2}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400"
             />
@@ -309,7 +409,7 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
                   <div className="text-left">
                     <span className="text-white font-bold block text-xs">{fileName}</span>
                     <span className="text-emerald-400 text-[10px] block">
-                      ✓ Ready for Arweave Permanent Metadata Storage
+                      ✓ Ready for Permanent Metadata Storage
                     </span>
                   </div>
                 </div>
@@ -329,7 +429,7 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
 
           {/* Launch Fee & Execution Button */}
           <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Creation & Arweave Storage Fee:</span>
+            <span className="text-slate-400">Creation & Permanent Storage Fee:</span>
             <span className="text-cyan-300 font-bold font-mono">{LAUNCH_FEE_SOL} SOL</span>
           </div>
 
@@ -341,12 +441,12 @@ export const TokenLaunchStudio: React.FC<TokenLaunchStudioProps> = ({
             {isLaunching ? (
               <>
                 <Sparkles className="w-4 h-4 text-cyan-200 animate-spin" />
-                <span>Creating SPL Token & Metadata...</span>
+                <span>Initializing Fair Launch Bonding Curve...</span>
               </>
             ) : (
               <>
                 <Rocket className="w-4 h-4 text-cyan-200" />
-                <span>Launch SPL Token ({LAUNCH_FEE_SOL} SOL)</span>
+                <span>Launch & Start Bonding Curve ({LAUNCH_FEE_SOL} SOL)</span>
               </>
             )}
           </button>

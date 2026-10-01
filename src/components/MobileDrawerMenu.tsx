@@ -26,6 +26,9 @@ import {
   Camera,
   Rocket,
   Heart,
+  Share2,
+  Award,
+  Flame,
 } from 'lucide-react';
 import { NetworkCluster, NETWORKS } from '../services/solana';
 import { THEMES, TRANSLATIONS, SupportedLanguage, SupportedTheme } from '../services/i18n';
@@ -35,10 +38,13 @@ import { PWAInstallButton } from './PWAInstallButton';
 interface MenuSliderDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  activeTab: 'games' | 'portfolio' | 'multi' | 'admin';
-  setActiveTab: (tab: 'games' | 'portfolio' | 'multi' | 'admin') => void;
+  activeTab: 'games' | 'portfolio' | 'multi' | 'admin' | 'spectator';
+  setActiveTab: (tab: 'games' | 'portfolio' | 'multi' | 'admin' | 'spectator') => void;
   onOpenMultiCascade: () => void;
   onOpenMissions: () => void;
+  onOpenStreaks?: () => void;
+  onOpenBadges?: () => void;
+  onOpenFortuneWheel?: () => void;
   onOpenReferrals: () => void;
   onOpenAIAnalyst: () => void;
   onOpenFairModal: () => void;
@@ -52,6 +58,8 @@ interface MenuSliderDrawerProps {
   onOpenReplayViewer?: () => void;
   onOpenLaunchStudio?: () => void;
   onOpenSocialFeed?: () => void;
+  onOpenShareResult?: () => void;
+  onOpenSpectatorStream?: () => void;
   onRequestFaucet: () => void;
   faucetLoading: boolean;
   network: NetworkCluster;
@@ -74,6 +82,9 @@ export const MobileDrawerMenu: React.FC<MenuSliderDrawerProps> = ({
   setActiveTab,
   onOpenMultiCascade,
   onOpenMissions,
+  onOpenStreaks,
+  onOpenBadges,
+  onOpenFortuneWheel,
   onOpenReferrals,
   onOpenAIAnalyst,
   onOpenFairModal,
@@ -87,6 +98,8 @@ export const MobileDrawerMenu: React.FC<MenuSliderDrawerProps> = ({
   onOpenReplayViewer,
   onOpenLaunchStudio,
   onOpenSocialFeed,
+  onOpenShareResult,
+  onOpenSpectatorStream,
   onRequestFaucet,
   faucetLoading,
   network,
@@ -161,6 +174,25 @@ export const MobileDrawerMenu: React.FC<MenuSliderDrawerProps> = ({
             onClick={() => {
               sound.playChipClick();
               onClose();
+              setActiveTab('spectator');
+            }}
+            className={`w-full p-2.5 rounded-xl border flex items-center justify-between transition-all ${
+              activeTab === 'spectator'
+                ? 'bg-purple-950/80 border-purple-400 text-purple-200 font-bold shadow-md shadow-purple-950'
+                : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Tv className="w-4 h-4 text-purple-400 animate-pulse" />
+              <span>Live Spectator Mode</span>
+            </div>
+            <span className="text-[10px] text-purple-400 font-bold">14.2k Active</span>
+          </button>
+
+          <button
+            onClick={() => {
+              sound.playChipClick();
+              onClose();
               setActiveTab('multi');
               onOpenMultiCascade();
             }}
@@ -205,14 +237,67 @@ export const MobileDrawerMenu: React.FC<MenuSliderDrawerProps> = ({
           >
             <div className="flex items-center gap-2">
               <Gift className="w-4 h-4 text-yellow-400" />
-              <span>Missions & Streaks</span>
+              <span>Daily Missions</span>
             </div>
-            {unclaimedMissionsCount > 0 && (
+            {unclaimedMissionsCount > 0 ? (
               <span className="px-2 py-0.5 rounded-full bg-orange-500 text-white font-bold text-[10px] animate-bounce">
                 {unclaimedMissionsCount} Pending
               </span>
+            ) : (
+              <span className="text-[10px] text-yellow-400 font-bold">SOL Rewards</span>
             )}
           </button>
+
+          {onOpenStreaks && (
+            <button
+              onClick={() => {
+                sound.playChipClick();
+                onClose();
+                onOpenStreaks();
+              }}
+              className="w-full p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-200 flex items-center justify-between hover:bg-slate-800"
+            >
+              <div className="flex items-center gap-2">
+                <Flame className="w-4 h-4 text-orange-400 animate-pulse" />
+                <span>7-Day Streak Rewards</span>
+              </div>
+              <span className="text-[10px] text-orange-400 font-bold">Daily Multiplier</span>
+            </button>
+          )}
+
+          {onOpenBadges && (
+            <button
+              onClick={() => {
+                sound.playChipClick();
+                onClose();
+                onOpenBadges();
+              }}
+              className="w-full p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-200 flex items-center justify-between hover:bg-slate-800"
+            >
+              <div className="flex items-center gap-2">
+                <Award className="w-4 h-4 text-purple-400" />
+                <span>Badges & Trophies</span>
+              </div>
+              <span className="text-[10px] text-purple-400 font-bold">Perks & Flares</span>
+            </button>
+          )}
+
+          {onOpenFortuneWheel && (
+            <button
+              onClick={() => {
+                sound.playChipClick();
+                onClose();
+                onOpenFortuneWheel();
+              }}
+              className="w-full p-2.5 rounded-xl bg-gradient-to-r from-cyan-950/70 to-blue-950/70 border border-cyan-500/40 text-slate-200 flex items-center justify-between hover:border-cyan-400"
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-cyan-400 animate-spin" />
+                <span>Daily Fortune Wheel</span>
+              </div>
+              <span className="text-[10px] text-cyan-300 font-extrabold animate-pulse">SPIN & WIN</span>
+            </button>
+          )}
 
           <button
             onClick={() => {
@@ -267,6 +352,42 @@ export const MobileDrawerMenu: React.FC<MenuSliderDrawerProps> = ({
                 <span>Social Like & Play Feed</span>
               </div>
               <span className="text-[10px] text-pink-300 font-bold">Community</span>
+            </button>
+          )}
+
+          {onOpenShareResult && (
+            <button
+              onClick={() => {
+                sound.playChipClick();
+                onClose();
+                onOpenShareResult();
+              }}
+              className="w-full p-2.5 rounded-xl bg-gradient-to-r from-cyan-950/90 to-blue-950/90 border border-cyan-400/50 text-cyan-200 flex items-center justify-between hover:bg-slate-800"
+            >
+              <div className="flex items-center gap-2 font-bold">
+                <Share2 className="w-4 h-4 text-cyan-400" />
+                <span>Share Result & Solana Blink</span>
+              </div>
+              <span className="text-[10px] text-cyan-300 font-bold">OG Card</span>
+            </button>
+          )}
+
+          {onOpenSpectatorStream && (
+            <button
+              onClick={() => {
+                sound.playChipClick();
+                onClose();
+                onOpenSpectatorStream();
+              }}
+              className="w-full p-2.5 rounded-xl bg-gradient-to-r from-red-950/80 via-slate-900 to-purple-950/80 border border-red-500/50 text-red-200 flex items-center justify-between hover:bg-slate-800"
+            >
+              <div className="flex items-center gap-2 font-bold">
+                <Tv className="w-4 h-4 text-red-400 animate-pulse" />
+                <span>Spectator Live Stream</span>
+              </div>
+              <span className="text-[10px] text-red-400 font-bold px-1.5 py-0.5 rounded bg-red-950 border border-red-500/40">
+                LIVE PiP
+              </span>
             </button>
           )}
 

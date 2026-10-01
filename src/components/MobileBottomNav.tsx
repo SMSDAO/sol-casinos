@@ -3,8 +3,8 @@ import { Gamepad2, Flame, Layers, Wallet, Gift, Menu } from 'lucide-react';
 import { sound } from '../utils/audio';
 
 interface MobileBottomNavProps {
-  activeTab: 'games' | 'portfolio' | 'multi' | 'admin';
-  setActiveTab: (tab: 'games' | 'portfolio' | 'multi' | 'admin') => void;
+  activeTab: 'games' | 'portfolio' | 'multi' | 'admin' | 'spectator';
+  setActiveTab: (tab: 'games' | 'portfolio' | 'multi' | 'admin' | 'spectator') => void;
   onOpenMultiCascade: () => void;
   onOpenMissions: () => void;
   onOpenMenu: () => void;
